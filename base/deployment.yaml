@@ -68,7 +68,7 @@ spec:
         # 1. CLAIMS SERVICE CONTAINER (NestJS + Prisma)
         #############################################################
         - name: claims-service
-          image: us-central1-docker.pkg.dev/sn-insurance-platform/claims-repo/claims-service:latest
+          image: us-central1-docker.pkg.dev/sn-insurance-platform/claims-repo/claims-service:v18
           imagePullPolicy: IfNotPresent
 
           envFrom:
