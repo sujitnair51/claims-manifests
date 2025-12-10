@@ -1,0 +1,15 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: claims-service
+  namespace: argocd
+spec:
+  interval: 2m
+  images:
+    - name: claims-service
+      image: us-central1-docker.pkg.dev/sn-insurance-platform/claims-repo/claims-service
+      updateStrategy: latest
+  git:
+    repoURL: https://github.com/sujitnair51/claims-manifests.git
+    branch: main
+    writeBackMethod: git
