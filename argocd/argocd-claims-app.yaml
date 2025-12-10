@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: claims-service
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: claims-service=us-central1-docker.pkg.dev/sn-insurance-platform/claims-repo/claims-service
+    argocd-image-updater.argoproj.io/claims.update-strategy: latest
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/git-branch: main
+    argocd-image-updater.argoproj.io/git-creds: secret://argocd/argocd-image-updater-secret#git_token
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/sujitnair51/claims-manifests.git
+    targetRevision: main
+    path: overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: insurance-platform
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

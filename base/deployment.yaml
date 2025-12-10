@@ -1,0 +1,139 @@
+###########################################
+# NAMESPACE
+###########################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: insurance-platform
+---
+###########################################
+# SERVICE ACCOUNT (Workload Identity)
+###########################################
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: claims-sa
+  namespace: insurance-platform
+  annotations:
+    iam.gke.io/gcp-service-account: claims-gsa@sn-insurance-platform.iam.gserviceaccount.com
+---
+###########################################
+# CONFIGMAP (non-sensitive)
+###########################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: claims-config
+  namespace: insurance-platform
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+---
+###########################################
+# SECRET (DATABASE_URL only)
+###########################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: claims-secrets
+  namespace: insurance-platform
+type: Opaque
+stringData:
+  # Cloud SQL is accessed through Cloud SQL Proxy on localhost
+  DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/claimsdb?schema=public"
+---
+###########################################
+# DEPLOYMENT (Claims Service + Cloud SQL Proxy)
+###########################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-service
+  namespace: insurance-platform
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: claims-service
+  template:
+    metadata:
+      labels:
+        app: claims-service
+    spec:
+      serviceAccountName: claims-sa
+
+      containers:
+        #############################################################
+        # 1. CLAIMS SERVICE CONTAINER (NestJS + Prisma)
+        #############################################################
+        - name: claims-service
+          image: us-central1-docker.pkg.dev/sn-insurance-platform/claims-repo/claims-service:latest
+          imagePullPolicy: IfNotPresent
+
+          envFrom:
+            - configMapRef:
+                name: claims-config
+            - secretRef:
+                name: claims-secrets
+            - secretRef:
+                name: claims-auth-secret
+
+          ports:
+            - name: http
+              containerPort: 3000
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
+
+        #############################################################
+        # 2. CLOUD SQL AUTH PROXY SIDECAR (Secure DB Connection)
+        #############################################################
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+          args:
+            - "--port=5432"
+            - "--address=0.0.0.0"
+            - "--structured-logs"
+            # Replace with your INSTANCE CONNECTION NAME
+            - "sn-insurance-platform:us-central1:claims-postgres"
+
+          securityContext:
+            runAsNonRoot: true
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
+      restartPolicy: Always

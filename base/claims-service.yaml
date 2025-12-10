@@ -1,0 +1,19 @@
+###########################################
+# SERVICE (External Load Balancer)
+###########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: claims-service
+  namespace: insurance-platform
+  annotations:
+    cloud.google.com/backend-config: '{"default": "claims-backendconfig"}'
+spec:
+  selector:
+    app: claims-service
+  ports:
+    # - name: http
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+  type: NodePort
