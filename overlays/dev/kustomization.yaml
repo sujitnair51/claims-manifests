@@ -8,4 +8,4 @@ resources:
 
 images:
   - name: us-central1-docker.pkg.dev/sn-insurance-platform/claims-repo/claims-service
-    newTag: v18
+    newTag: v20
